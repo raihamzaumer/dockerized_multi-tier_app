@@ -50,7 +50,6 @@ jobs:
   backend-deploy:
     name: Deploy Backend on EC2 (ECR)
     runs-on: ubuntu-latest
-    needs: backend-build
 
     steps:
       - name: Deploy via SSH
