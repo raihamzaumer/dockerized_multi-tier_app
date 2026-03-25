@@ -46,30 +46,35 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 
-  backend-build-push:
-    name: Build & Push Backend to ECR
+  backend-deploy:
+    name: Deploy Backend on EC2 (ECR)
     runs-on: ubuntu-latest
 
+    needs: backend-build-push
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.6
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Deploying backend from ECR..."
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+            if [ ! -d "app" ]; then
+              git clone https://github.com/raihamzaumer/dockerized_multi-tier_app.git app
+            fi
 
-      - name: Build Docker image
-        run: |
-          docker build -t backend ./backend
-          docker tag backend:latest ${{ steps.login-ecr.outputs.registry }}/backend:latest
+            cd app
+            git pull origin main || git pull origin master
 
-      - name: Push to ECR
-        run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/backend:latest
+            # Login to ECR on EC2
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
+            docker login --username AWS --password-stdin 288390777595.dkr.ecr.eu-north-1.amazonaws.com/backend
+
+            # Pull latest images and restart
+            docker compose pull
+            docker compose up -d
+
+            echo "✅ Backend deployed from ECR"
