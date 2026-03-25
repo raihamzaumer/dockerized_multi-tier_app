@@ -46,33 +46,39 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 
-  backend-deploy:
-    name: Deploy Backend on EC2 (ECR)
+  backend-build:
+    name: Build & Push Backend to ECR
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPOSITORY: backend
+      IMAGE_TAG: latest
+
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "🚀 Deploying backend from ECR..."
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            if [ ! -d "app" ]; then
-              git clone https://github.com/raihamzaumer/dockerized_multi-tier_app.git app
-            fi
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-            cd app
-            git pull origin main || git pull origin master
+      - name: Create ECR repo if not exists
+        run: |
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
+          aws ecr create-repository --repository-name $ECR_REPOSITORY
 
-            # Login to ECR on EC2
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
-            docker login --username AWS --password-stdin 288390777595.dkr.ecr.eu-north-1.amazonaws.com/backend
-
-            # Pull latest images and restart
-            docker compose pull
-            docker compose up -d
-
-            echo "✅ Backend deployed from ECR"
+      - name: Build, tag, and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build -t backend .
+          docker tag backend:latest $ECR_REGISTRY/backend:latest
+          docker push $ECR_REGISTRY/backend:latest
