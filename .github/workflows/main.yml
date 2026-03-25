@@ -46,31 +46,30 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 
-  backend-deploy:
-    name: Deploy Backend on EC2 (Docker Hub)
+  backend-build-push:
+    name: Build & Push Backend to ECR
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "🚀 Starting backend deployment..."
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-            # Clone repo if not exists
-            if [ ! -d "app" ]; then
-              git clone https://github.com/raihamzaumer/dockerized_multi-tier_app.git app
-            fi
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-            cd app
+      - name: Build Docker image
+        run: |
+          docker build -t backend ./backend
+          docker tag backend:latest ${{ steps.login-ecr.outputs.registry }}/backend:latest
 
-            # Pull latest code (optional but useful for compose/nginx updates)
-            git pull origin main || git pull origin master
-
-            # Pull latest Docker Hub images and restart containers
-            docker compose up -d --pull always
-
-            echo "✅ Deployment completed"
+      - name: Push to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/backend:latest
