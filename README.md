@@ -47,10 +47,6 @@ Based on the screenshot you shared, here’s a professional **README.md** tailor
 
 ---
 
-# 🚀 Dockerized Multi-Tier Web Application
-
-A modern **multi-tier web application** demonstrating containerized architecture with **Frontend**, **Backend**, and **Database** services orchestrated via **Docker Compose** and managed through an **Nginx reverse proxy**.
-
 ## 📌 Overview
 
 This project showcases:
@@ -110,12 +106,6 @@ docker-compose down
 * Automatically builds and deploys containers on push
 * Ensures consistency between local and production environments
 
-## 📈 Future Enhancements
-
-* Add HTTPS with Let's Encrypt in Nginx
-* Introduce multi-environment Docker Compose files (dev/prod)
-* Integrate monitoring tools (Prometheus/Grafana)
-* Implement automated testing for frontend and backend
 
 ## 👨‍💻 Author
 
